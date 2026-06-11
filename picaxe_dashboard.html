@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Picaxe — Host Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f0;color:#111;font-size:14px}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-rows:52px 1fr;grid-template-columns:220px 1fr;height:100vh}
+.topbar{grid-column:1/-1;background:#0a1f1a;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;border-bottom:1px solid rgba(255,255,255,0.06)}
+.sidebar{background:#fff;border-right:1px solid #e4e4e0;overflow-y:auto;display:flex;flex-direction:column}
+.main{overflow-y:auto;padding:1.75rem}
+
+/* ── TOPBAR ── */
+.tb-left{display:flex;align-items:center;gap:1rem}
+.tb-logo{font-size:1rem;font-weight:700;color:#3dcca0;letter-spacing:-0.02em}
+.tb-divider{width:1px;height:18px;background:rgba(255,255,255,0.1)}
+.tb-page{font-size:0.78rem;color:rgba(255,255,255,0.4)}
+.tb-right{display:flex;align-items:center;gap:0.75rem}
+.tb-date{font-size:0.72rem;color:rgba(255,255,255,0.35)}
+.tb-badge{background:rgba(255,255,255,0.07);border-radius:99px;padding:0.3rem 0.75rem;font-size:0.72rem;color:rgba(255,255,255,0.5);display:flex;align-items:center;gap:5px}
+.tb-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#1d9e75;display:block}
+.tb-notif{position:relative;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.85rem;color:rgba(255,255,255,0.6)}
+.tb-notif .badge{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:#e24b4a;border:2px solid #0a1f1a}
+.tb-avatar{width:32px;height:32px;border-radius:50%;background:#1d9e75;color:#fff;font-size:0.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}
+
+/* ── SIDEBAR ── */
+.sb-host{padding:1rem 1.25rem 0.75rem;border-bottom:1px solid #f0f0ee}
+.sb-host-name{font-weight:700;font-size:0.85rem;color:#111}
+.sb-host-props{font-size:0.7rem;color:#888;margin-top:2px}
+.sb-section{font-size:0.62rem;font-weight:700;letter-spacing:0.1em;color:#bbb;text-transform:uppercase;padding:1rem 1.25rem 0.3rem}
+.sb-item{display:flex;align-items:center;gap:0.6rem;padding:0.55rem 1.25rem;font-size:0.8rem;color:#777;cursor:pointer;border-left:3px solid transparent;transition:all .12s;user-select:none}
+.sb-item:hover{background:#f8f8f6;color:#333}
+.sb-item.active{color:#0a6b52;border-left-color:#1d9e75;background:#f0faf5;font-weight:600}
+.sb-item .sb-icon{width:18px;text-align:center;font-size:0.9rem}
+.sb-item .sb-count{margin-left:auto;background:#e1f5ee;color:#0a6b52;font-size:0.62rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:99px}
+.sb-item .sb-count.warn{background:#faeeda;color:#854f0b}
+.sb-item .sb-count.alert{background:#fcebeb;color:#a32d2d}
+.sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid #f0f0ee}
+.sb-footer-item{display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;font-size:0.78rem;color:#999;cursor:pointer}
+.sb-footer-item:hover{color:#333}
+
+/* ── PAGE HEADER ── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+.page-title{font-size:1.2rem;font-weight:700;color:#111;letter-spacing:-0.02em}
+.page-subtitle{font-size:0.78rem;color:#888;margin-top:2px}
+.header-actions{display:flex;gap:0.6rem}
+.btn{padding:0.5rem 1rem;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;border:none;transition:all .12s}
+.btn-primary{background:#0a6b52;color:#fff}
+.btn-primary:hover{background:#085041}
+.btn-ghost{background:#fff;color:#555;border:1px solid #e0e0dc}
+.btn-ghost:hover{background:#f5f5f3}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.85rem;margin-bottom:1.5rem}
+.stat-card{background:#fff;border-radius:12px;border:1px solid #e8e8e4;padding:1.1rem 1.25rem}
+.sc-label{font-size:0.65rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#aaa;margin-bottom:0.5rem}
+.sc-val{font-size:1.9rem;font-weight:700;color:#111;line-height:1;letter-spacing:-0.03em}
+.sc-foot{font-size:0.7rem;margin-top:5px;display:flex;align-items:center;gap:4px}
+.sc-foot.up{color:#1d9e75}
+.sc-foot.warn{color:#ba7517}
+.sc-foot.alert{color:#e24b4a}
+.sc-foot.muted{color:#aaa}
+
+/* ── ALERT BANNER ── */
+.alert-banner{background:#fffbea;border:1px solid #fac775;border-radius:10px;padding:0.85rem 1.1rem;margin-bottom:1.25rem;display:flex;align-items:flex-start;gap:0.75rem;font-size:0.8rem;color:#633806}
+.alert-banner .ai{font-size:1rem;flex-shrink:0;margin-top:1px}
+.alert-banner strong{font-weight:700}
+.alert-link{color:#0a6b52;font-weight:600;cursor:pointer;text-decoration:underline;margin-left:6px}
+
+/* ── TABLE CARD ── */
+.card{background:#fff;border-radius:12px;border:1px solid #e8e8e4;overflow:hidden;margin-bottom:1.25rem}
+.card-head{padding:0.9rem 1.25rem;border-bottom:1px solid #f0f0ee;display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:0.82rem;font-weight:700;color:#111}
+.card-action{font-size:0.75rem;color:#1d9e75;font-weight:600;cursor:pointer;background:none;border:none}
+.card-action:hover{text-decoration:underline}
+
+/* property rows */
+.tbl-head{display:grid;gap:0.5rem;padding:0.5rem 1.25rem;background:#fafaf8;font-size:0.62rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#bbb;border-bottom:1px solid #f0f0ee}
+.tbl-head.props-cols,.prop-row{grid-template-columns:2fr 1fr 1fr 0.9fr 0.7fr}
+.prop-row{display:grid;gap:0.5rem;padding:0.85rem 1.25rem;border-bottom:1px solid #f8f8f6;align-items:center;transition:background .1s;cursor:default}
+.prop-row:last-child{border-bottom:none}
+.prop-row:hover{background:#fafaf9}
+.pr-name{font-weight:600;font-size:0.82rem;color:#111}
+.pr-addr{font-size:0.68rem;color:#999;margin-top:2px}
+.pr-action{font-size:0.72rem;color:#1d9e75;font-weight:600;cursor:pointer;background:none;border:none;padding:0}
+.pr-action:hover{text-decoration:underline}
+.code-chip{font-family:monospace;font-size:0.8rem;font-weight:700;background:#f4f4f0;padding:0.2rem 0.55rem;border-radius:6px;color:#444;letter-spacing:0.08em}
+
+/* status pills */
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:0.65rem;font-weight:700;padding:0.22rem 0.65rem;border-radius:99px;white-space:nowrap}
+.pill::before{content:'';width:5px;height:5px;border-radius:50%;display:block}
+.p-green{background:#e1f5ee;color:#0a6b52}.p-green::before{background:#1d9e75}
+.p-amber{background:#faeeda;color:#854f0b}.p-amber::before{background:#ba7517}
+.p-blue{background:#e6f1fb;color:#185fa5}.p-blue::before{background:#378add}
+.p-red{background:#fcebeb;color:#a32d2d}.p-red::before{background:#e24b4a}
+.p-gray{background:#f0f0ee;color:#666}.p-gray::before{background:#aaa}
+
+/* ── CLEANER CARDS ── */
+.cleaner-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.85rem;margin-bottom:1.25rem}
+.cc{background:#fff;border-radius:12px;border:1px solid #e8e8e4;padding:1.1rem}
+.cc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem}
+.cc-left{display:flex;align-items:center;gap:0.65rem}
+.cc-ava{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700}
+.cc-ava.green{background:#e1f5ee;color:#0a6b52}
+.cc-ava.amber{background:#faeeda;color:#854f0b}
+.cc-ava.blue{background:#e6f1fb;color:#185fa5}
+.cc-name{font-weight:700;font-size:0.82rem;color:#111}
+.cc-sub{font-size:0.68rem;color:#999;margin-top:1px}
+.cc-prop{font-size:0.72rem;color:#666;margin-bottom:0.75rem}
+.cc-bar-wrap{height:4px;background:#f0f0ee;border-radius:99px;overflow:hidden;margin-bottom:0.6rem}
+.cc-bar{height:100%;border-radius:99px;background:#1d9e75;transition:width .4s}
+.cc-foot{display:flex;align-items:center;justify-content:space-between;font-size:0.68rem;color:#aaa}
+.cc-btns{display:flex;gap:0.4rem;margin-top:0.75rem}
+.cc-btn{flex:1;padding:0.4rem;border-radius:7px;font-size:0.7rem;font-weight:600;cursor:pointer;border:none;text-align:center}
+.cc-btn.confirm{background:#1d9e75;color:#fff}
+.cc-btn.skip{background:#f5f5f3;color:#555}
+.cc-btn.msg{background:#f5f5f3;color:#333}
+
+/* roster */
+.roster-row{display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1.25rem;border-bottom:1px solid #f8f8f6;font-size:0.78rem}
+.roster-row:last-child{border-bottom:none}
+.roster-num{width:20px;font-weight:700;color:#bbb}
+.roster-name{flex:1;font-weight:600;color:#111}
+.roster-status{font-size:0.72rem}
+
+/* ── CODES TABLE ── */
+.tbl-head.codes-cols,.codes-row{grid-template-columns:1.8fr 1fr 1fr 0.9fr 0.7fr}
+.codes-row{display:grid;gap:0.5rem;padding:0.85rem 1.25rem;border-bottom:1px solid #f8f8f6;align-items:center;transition:background .1s}
+.codes-row:last-child{border-bottom:none}
+.codes-row:hover{background:#fafaf9}
+.code-big{font-family:monospace;font-size:1rem;font-weight:700;letter-spacing:0.15em;color:#111}
+.code-exp{font-size:0.68rem;color:#aaa;margin-top:2px}
+.rotate-btn{font-size:0.72rem;color:#1d9e75;font-weight:600;cursor:pointer;background:none;border:none;padding:0}
+.rotate-btn:hover{text-decoration:underline}
+.codes-notice{margin:0.75rem 1.25rem;background:#f0faf5;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.75rem;color:#0a6b52;border:1px solid #c8eedd}
+
+/* ── PAGES ── */
+.page{display:none}
+.page.active{display:block}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#ddd;border-radius:99px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-left">
+      <div class="tb-logo">Picaxe</div>
+      <div class="tb-divider"></div>
+      <div class="tb-page" id="tb-page-label">Overview</div>
+    </div>
+    <div class="tb-right">
+      <div class="tb-badge">Live sync</div>
+      <div class="tb-date">Saturday 14 Jun · 09:41</div>
+      <div class="tb-notif" onclick="alert('Notifications:\n\n⚠ Cleaner cancelled — Loft · Friedrichshain\n✓ Code rotated — Studio · Prenzlberg\n📅 New booking — 2BR · Kreuzberg (next week)')">
+        🔔<div class="badge"></div>
+      </div>
+      <div class="tb-avatar" onclick="alert('Alex Hassan\nalex@hostco.com\n5 properties · Pro plan')">AH</div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-host">
+      <div class="sb-host-name">Alex Hassan</div>
+      <div class="sb-host-props">5 properties · Berlin</div>
+    </div>
+
+    <div class="sb-section">Properties</div>
+    <div class="sb-item active" onclick="nav('overview',this,'Overview')">
+      <span class="sb-icon">📊</span> Overview
+      <span class="sb-count alert">1</span>
+    </div>
+    <div class="sb-item" onclick="nav('cleaners',this,'Cleaners')">
+      <span class="sb-icon">🧹</span> Cleaners
+      <span class="sb-count warn">1</span>
+    </div>
+    <div class="sb-item" onclick="nav('codes',this,'Door Codes')">
+      <span class="sb-icon">🔑</span> Door Codes
+    </div>
+
+    <div class="sb-section">Management</div>
+    <div class="sb-item" onclick="nav('calendar',this,'Calendar')">
+      <span class="sb-icon">📅</span> Calendar
+    </div>
+    <div class="sb-item" onclick="nav('guests',this,'Guests')">
+      <span class="sb-icon">👤</span> Guests
+    </div>
+    <div class="sb-item" onclick="nav('reports',this,'Reports')">
+      <span class="sb-icon">📈</span> Reports
+    </div>
+
+    <div class="sb-section">Account</div>
+    <div class="sb-item" onclick="alert('Alert settings: Push · WhatsApp · Email')">
+      <span class="sb-icon">🔔</span> Alerts
+    </div>
+    <div class="sb-item" onclick="alert('Settings: Integrations, team, billing')">
+      <span class="sb-icon">⚙️</span> Settings
+    </div>
+
+    <div class="sb-footer">
+      <div class="sb-footer-item" onclick="alert('Airbnb ✓  Booking.com ✓  Vrbo — coming soon')">🔗 Integrations</div>
+      <div class="sb-footer-item" onclick="alert('Signed out')">← Sign out</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ══ OVERVIEW ══ -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Good morning, Alex 👋</div>
+          <div class="page-subtitle">Here's what's happening across your properties today.</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="alert('Refreshing live data...')">↻ Refresh</button>
+          <button class="btn btn-primary" onclick="alert('Add a new property')">+ Add property</button>
+        </div>
+      </div>
+
+      <div class="alert-banner">
+        <div class="ai">⚠️</div>
+        <div>
+          <strong>Action needed:</strong> Cleaner for <strong>Loft · Friedrichshain</strong> cancelled at 08:32. Guest arrives at 14:00. Backup cleaner Maria S. has been automatically notified.
+          <span class="alert-link" onclick="nav('cleaners',null,'Cleaners')">View cleaner dispatch →</span>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="sc-label">Checkouts today</div>
+          <div class="sc-val">3</div>
+          <div class="sc-foot up">✓ 2 confirmed out</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-label">Check-ins today</div>
+          <div class="sc-val">4</div>
+          <div class="sc-foot up">✓ All codes sent</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-label">Cleaners active</div>
+          <div class="sc-val">2</div>
+          <div class="sc-foot warn">⚡ 1 backup pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-label">Properties ready</div>
+          <div class="sc-val">2<span style="font-size:1rem;color:#aaa;font-weight:400"> /5</span></div>
+          <div class="sc-foot alert">● 3 in progress</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">All properties</span>
+          <button class="card-action" onclick="alert('Add a new property to your dashboard')">+ Add property</button>
+        </div>
+        <div class="tbl-head props-cols">
+          <div>Property</div><div>Status</div><div>Cleaner</div><div>Code</div><div>Action</div>
+        </div>
+
+        <div class="prop-row">
+          <div><div class="pr-name">Apt 4B · Mitte</div><div class="pr-addr">Guest checked out 09:15 · Cleaner en route</div></div>
+          <div><span class="pill p-amber">Cleaning</span></div>
+          <div style="font-size:0.75rem;color:#555">Anika M.</div>
+          <div><span class="code-chip">4821</span></div>
+          <div><button class="pr-action" onclick="alert('Code 4821 rotated → 7734.\nNext guest Ahmed R. notified by email.')">Rotate code</button></div>
+        </div>
+
+        <div class="prop-row">
+          <div><div class="pr-name">Studio · Prenzlberg</div><div class="pr-addr">Cleaned ✓ · Guest arriving 15:00</div></div>
+          <div><span class="pill p-green">Ready</span></div>
+          <div style="font-size:0.75rem;color:#555">Fatma K.</div>
+          <div><span class="code-chip">7093</span></div>
+          <div><button class="pr-action" onclick="alert('Code auto-rotates at check-in.\nNo action needed.')">Auto ✓</button></div>
+        </div>
+
+        <div class="prop-row" style="background:#fffcf5">
+          <div><div class="pr-name">Loft · Friedrichshain</div><div class="pr-addr">⚠ Cleaner cancelled · backup contacted</div></div>
+          <div><span class="pill p-red">Alert</span></div>
+          <div style="font-size:0.75rem;color:#ba7517">Maria S. (backup)</div>
+          <div><span class="code-chip" style="color:#bbb">—</span></div>
+          <div><button class="pr-action" onclick="nav('cleaners',null,'Cleaners')">View dispatch</button></div>
+        </div>
+
+        <div class="prop-row">
+          <div><div class="pr-name">Room 2 · Wedding</div><div class="pr-addr">Guest in residence · checkout 11:00</div></div>
+          <div><span class="pill p-blue">Occupied</span></div>
+          <div style="font-size:0.75rem;color:#555">Tom B. (assigned)</div>
+          <div><span class="code-chip">3347</span></div>
+          <div><button class="pr-action" onclick="alert('WhatsApp reminder sent:\n\"Your checkout is at 11:00. Thank you for staying!\"')">Remind guest</button></div>
+        </div>
+
+        <div class="prop-row">
+          <div><div class="pr-name">2BR · Kreuzberg</div><div class="pr-addr">Cleaned ✓ · No booking today</div></div>
+          <div><span class="pill p-gray">Vacant</span></div>
+          <div style="font-size:0.75rem;color:#bbb">—</div>
+          <div><span class="code-chip" style="color:#bbb">—</span></div>
+          <div><button class="pr-action" onclick="alert('No active booking.\nCode generated automatically when next guest books.')">—</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CLEANERS ══ -->
+    <div class="page" id="page-cleaners">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Cleaner Dispatch</div>
+          <div class="page-subtitle">Today's assignments and backup status.</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="alert('Add a cleaner to your roster')">+ Add cleaner</button>
+          <button class="btn btn-primary" onclick="alert('All available cleaners notified of today\'s schedule')">Notify all</button>
+        </div>
+      </div>
+
+      <div class="alert-banner">
+        <div class="ai">⚠️</div>
+        <div><strong>Loft · Friedrichshain:</strong> Primary cleaner Anika cancelled at 08:32. Backup list activated. Awaiting confirmation from Maria S.</div>
+      </div>
+
+      <div class="cleaner-grid">
+        <div class="cc">
+          <div class="cc-top">
+            <div class="cc-left">
+              <div class="cc-ava green">AM</div>
+              <div><div class="cc-name">Anika Müller</div><div class="cc-sub">2 jobs today</div></div>
+            </div>
+            <span class="pill p-amber">En route</span>
+          </div>
+          <div class="cc-prop">📍 Apt 4B · Mitte · ETA 10:00</div>
+          <div class="cc-bar-wrap"><div class="cc-bar" style="width:45%"></div></div>
+          <div class="cc-foot"><span>45% of route</span><span>Est. arrival 10:00</span></div>
+          <div class="cc-btns">
+            <button class="cc-btn msg" onclick="alert('WhatsApp sent to Anika:\n\"Please confirm your ETA for Apt 4B — guest checks in at 14:00.\"')">💬 Message</button>
+          </div>
+        </div>
+
+        <div class="cc" style="border-color:#fac775;background:#fffcf5">
+          <div class="cc-top">
+            <div class="cc-left">
+              <div class="cc-ava amber">MS</div>
+              <div><div class="cc-name">Maria S. <span style="color:#ba7517;font-size:0.65rem;font-weight:400">(backup)</span></div><div class="cc-sub">Notified 08:34</div></div>
+            </div>
+            <span class="pill p-red">Pending</span>
+          </div>
+          <div class="cc-prop">📍 Loft · Friedrichshain · awaiting reply</div>
+          <div class="cc-bar-wrap"><div class="cc-bar" style="width:0%;background:#fac775"></div></div>
+          <div class="cc-foot"><span>Waiting for confirmation</span></div>
+          <div class="cc-btns">
+            <button class="cc-btn confirm" onclick="alert('Maria confirmed!\nArriving at 11:00.\nCode generated and sent to next guest.')">✓ Confirm</button>
+            <button class="cc-btn skip" onclick="alert('Skipping Maria.\nContacting Tom B. (backup #2)...')">Skip</button>
+          </div>
+        </div>
+
+        <div class="cc">
+          <div class="cc-top">
+            <div class="cc-left">
+              <div class="cc-ava blue">FK</div>
+              <div><div class="cc-name">Fatma K.</div><div class="cc-sub">1 job today</div></div>
+            </div>
+            <span class="pill p-green">Done ✓</span>
+          </div>
+          <div class="cc-prop">✓ Studio · Prenzlberg · completed 08:45</div>
+          <div class="cc-bar-wrap"><div class="cc-bar" style="width:100%"></div></div>
+          <div class="cc-foot"><span>All tasks complete</span><span style="color:#1d9e75">✓</span></div>
+          <div class="cc-btns">
+            <button class="cc-btn msg" onclick="alert('Rate Fatma K. for today\'s job at Studio · Prenzlberg')">⭐ Rate</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Backup cleaner roster</span>
+          <button class="card-action" onclick="alert('Add a new backup cleaner')">+ Add backup</button>
+        </div>
+        <div class="roster-row">
+          <div class="roster-num">1</div>
+          <div class="roster-name">Maria S.</div>
+          <span class="pill p-amber">Contacted — awaiting reply</span>
+        </div>
+        <div class="roster-row">
+          <div class="roster-num">2</div>
+          <div class="roster-name">Tom B.</div>
+          <span class="pill p-gray">On standby</span>
+        </div>
+        <div class="roster-row">
+          <div class="roster-num">3</div>
+          <div class="roster-name">Cleanr Pro (agency)</div>
+          <span class="pill p-gray" style="background:#f5f5f3">Last resort · €45/hr</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DOOR CODES ══ -->
+    <div class="page" id="page-codes">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Door Codes</div>
+          <div class="page-subtitle">All codes are unique per guest and expire automatically at checkout.</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="alert('Access log: Full entry/exit history for all properties')">View access log</button>
+          <button class="btn btn-primary" onclick="alert('All active codes rotated. Guests notified by email.')">Rotate all</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Active codes</span>
+          <span style="font-size:0.72rem;color:#aaa">Auto-rotation enabled on all properties</span>
+        </div>
+        <div class="codes-notice">✓ Zero manual changes needed. Codes rotate automatically at every checkout.</div>
+        <div class="tbl-head codes-cols">
+          <div>Property</div><div>Guest</div><div>Code</div><div>Expires</div><div>Action</div>
+        </div>
+
+        <div class="codes-row">
+          <div><div style="font-weight:600">Apt 4B · Mitte</div><div style="font-size:0.68rem;color:#999">Lisa F.</div></div>
+          <div style="color:#555">Checkout today 11:00</div>
+          <div><div class="code-big">4821</div><div class="code-exp">Active now</div></div>
+          <div><span class="pill p-amber">Today 11:00</span></div>
+          <div><button class="rotate-btn" onclick="alert('Code rotated:\n4821 → 7734\n\nNext guest Ahmed R. notified by email.')">Force rotate</button></div>
+        </div>
+
+        <div class="codes-row">
+          <div><div style="font-weight:600">Studio · Prenzlberg</div><div style="font-size:0.68rem;color:#999">Ahmed R.</div></div>
+          <div style="color:#555">Check-in today 15:00</div>
+          <div><div class="code-big">7093</div><div class="code-exp">Sent to guest</div></div>
+          <div><span class="pill p-green">Auto on check-in</span></div>
+          <div><button class="rotate-btn" style="color:#aaa;cursor:default">Auto ✓</button></div>
+        </div>
+
+        <div class="codes-row">
+          <div><div style="font-weight:600">Room 2 · Wedding</div><div style="font-size:0.68rem;color:#999">Carlos M.</div></div>
+          <div style="color:#555">Checkout tomorrow 10:00</div>
+          <div><div class="code-big">3347</div><div class="code-exp">Active now</div></div>
+          <div><span class="pill p-blue">Tomorrow 10:00</span></div>
+          <div><button class="rotate-btn" onclick="alert('Force rotating...\n3347 → 9102\n\nCarlos M. notified of new code.')">Force rotate</button></div>
+        </div>
+
+        <div class="codes-row" style="background:#fafaf8">
+          <div><div style="font-weight:600;color:#aaa">Loft · Friedrichshain</div><div style="font-size:0.68rem;color:#ccc">No current guest</div></div>
+          <div style="color:#ccc">Awaiting cleaner</div>
+          <div><div class="code-big" style="color:#ccc">—</div><div class="code-exp">On check-in</div></div>
+          <div><span class="pill p-gray">Pending</span></div>
+          <div><button class="rotate-btn" style="color:#ccc;cursor:default">—</button></div>
+        </div>
+
+        <div class="codes-row" style="background:#fafaf8">
+          <div><div style="font-weight:600;color:#aaa">2BR · Kreuzberg</div><div style="font-size:0.68rem;color:#ccc">No booking</div></div>
+          <div style="color:#ccc">Vacant</div>
+          <div><div class="code-big" style="color:#ccc">—</div><div class="code-exp">On booking</div></div>
+          <div><span class="pill p-gray">Vacant</span></div>
+          <div><button class="rotate-btn" style="color:#ccc;cursor:default">—</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CALENDAR ══ -->
+    <div class="page" id="page-calendar">
+      <div class="page-header">
+        <div><div class="page-title">Calendar</div><div class="page-subtitle">Bookings synced from Airbnb and Booking.com.</div></div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="alert('Sync settings: Airbnb ✓  Booking.com ✓  Vrbo coming soon')">⚙ Sync settings</button>
+        </div>
+      </div>
+      <div class="card" style="padding:2rem;text-align:center;color:#aaa">
+        <div style="font-size:2rem;margin-bottom:0.75rem">📅</div>
+        <div style="font-weight:600;color:#555;margin-bottom:0.4rem">Calendar view coming soon</div>
+        <div style="font-size:0.8rem">Bookings from all platforms will appear here in a unified calendar.</div>
+      </div>
+    </div>
+
+    <!-- ══ GUESTS ══ -->
+    <div class="page" id="page-guests">
+      <div class="page-header">
+        <div><div class="page-title">Guests</div><div class="page-subtitle">Current and upcoming guests across all properties.</div></div>
+      </div>
+      <div class="card" style="padding:2rem;text-align:center;color:#aaa">
+        <div style="font-size:2rem;margin-bottom:0.75rem">👤</div>
+        <div style="font-weight:600;color:#555;margin-bottom:0.4rem">Guest profiles coming soon</div>
+        <div style="font-size:0.8rem">View guest history, send messages, and manage stays in one place.</div>
+      </div>
+    </div>
+
+    <!-- ══ REPORTS ══ -->
+    <div class="page" id="page-reports">
+      <div class="page-header">
+        <div><div class="page-title">Reports</div><div class="page-subtitle">Occupancy, cleaner performance, and revenue overview.</div></div>
+      </div>
+      <div class="card" style="padding:2rem;text-align:center;color:#aaa">
+        <div style="font-size:2rem;margin-bottom:0.75rem">📈</div>
+        <div style="font-weight:600;color:#555;margin-bottom:0.4rem">Analytics coming soon</div>
+        <div style="font-size:0.8rem">Occupancy rates, turnaround times, and revenue tracking across all properties.</div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+function nav(pageId, el, label) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  const page = document.getElementById('page-' + pageId);
+  if (page) page.classList.add('active');
+  if (el) el.classList.add('active');
+  const lbl = document.getElementById('tb-page-label');
+  if (lbl && label) lbl.textContent = label;
+}
+</script>
+</body>
+</html>
